@@ -56,6 +56,8 @@ const Cart = () => {
                               className="w-16 h-auto object-cover mix-blend-multiply"
                               width={1280}
                               height={720}
+                              unoptimized
+                              onError={(e) => { try { e.currentTarget.style.display = 'none'; } catch (_) {} }}
                             />
                           </div>
                           <button

@@ -1,13 +1,21 @@
-"use client";
+'use client'
 import React from "react";
 import { useAppContext } from "@/context/AppContext";
 import { useSearchParams, useRouter } from "next/navigation";
 
 const CategoriesMenu = ({ className = "", horizontal = false }) => {
-  const { products } = useAppContext();
+  const { products, categoriesMenu } = useAppContext();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const active = (searchParams.get("q") || "").toLowerCase();
+
+  const activeQ = (searchParams.get("q") || "").toLowerCase();
+  const activeC = (searchParams.get("c") || "").toLowerCase();
+  const activeS = (searchParams.get("s") || "").toLowerCase();
+
+  const groupMenu = (categoriesMenu || []).find(
+    (m) => (m?.title || "").toLowerCase() === activeC
+  );
+  const subcategories = groupMenu ? (groupMenu.columns || []).map((col) => col.title) : [];
 
   const categories = Array.from(
     new Set(products.map((p) => p.category).filter(Boolean))
@@ -30,10 +38,32 @@ const CategoriesMenu = ({ className = "", horizontal = false }) => {
           isActive ? "bg-orange-50 text-orange-700" : "text-gray-700"
         }`;
 
+  if (groupMenu) {
+    return (
+      <ul className={ulBase}>
+        {subcategories.map((sub) => {
+          const isActive = activeS && sub.toLowerCase() === activeS;
+          return (
+            <li key={sub}>
+              <button
+                onClick={() => router.push(`/all-products?c=${encodeURIComponent(groupMenu.title)}&s=${encodeURIComponent(sub)}`)}
+                className={itemClass(isActive)}
+                title={sub}
+                type="button"
+              >
+                <span className="truncate">{sub}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
   return (
     <ul className={ulBase}>
       {categories.map((cat) => {
-        const isActive = active && cat.toLowerCase() === active;
+        const isActive = activeQ && cat.toLowerCase() === activeQ;
         return (
           <li key={cat}>
             <button onClick={() => goToCategory(cat)} className={itemClass(isActive)}>

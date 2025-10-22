@@ -1,7 +1,7 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Articulo } from "../../articulo/entities/articulo.entity";
 
-@Entity("marca", { schema: "sarcos_db" })
+@Entity("marca")
 export class Marca {
   @PrimaryGeneratedColumn({ type: "int", name: "id_marca" })
   idMarca: number;

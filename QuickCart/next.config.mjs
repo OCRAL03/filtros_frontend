@@ -12,6 +12,12 @@ const nextConfig = {
                 hostname: 'raw.githubusercontent.com',
                 pathname: '**',
             },
+            {
+                protocol: 'http',
+                hostname: 'localhost',
+                port: '4000',
+                pathname: '**',
+            },
         ],
     },
 };

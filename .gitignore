@@ -1,0 +1,39 @@
+# Root ignore for monorepo sarcos-main
+
+# Node
+**/node_modules/
+**/npm-debug.log*
+
+# Env files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# OS/Editor
+**/.DS_Store
+**/Thumbs.db
+**/.idea/
+**/.vscode/
+
+# Build outputs
+**/dist/
+**/build/
+**/.turbo/
+**/.cache/
+
+# Next.js caches and outputs
+**/.next/
+**/.next*/
+QuickCart/.next/
+QuickCart/.next*/
+QuickCart/.next_backup_1/
+
+# Test coverage
+**/coverage/
+
+# Logs
+**/*.log
+**/logs/
+
+# Misc
+**/.eslintcache

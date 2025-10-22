@@ -32,12 +32,18 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: 'http://localhost:3000', // ⚠️ Debe ser EXACTAMENTE tu frontend
+    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3006', 'http://localhost:3005'], // ⚠️ Permite frontend en 3000, 3001, 3005 y 3006
     credentials: true, // ✅ MUY IMPORTANTE
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Set-Cookie'],
   });
-  await app.listen(process.env.PORT ?? 4000);
+
+  const port = Number(process.env.PORT ?? 4000);
+  await app.listen(port, '0.0.0.0');
+  const url = await app.getUrl();
+  // Log explícito del URL para diagnóstico
+  // Ej.: http://localhost:4000
+  console.log(`Nest HTTP server listening at: ${url}`);
 }
 bootstrap();

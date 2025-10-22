@@ -17,11 +17,37 @@ const Product = () => {
     const { products, router, addToCart } = useAppContext()
 
     const [mainImage, setMainImage] = useState(null);
+    const [mainIndex, setMainIndex] = useState(0);
     const [productData, setProductData] = useState(null);
+    const [relatedKey, setRelatedKey] = useState(null); // 'brand' | 'category'
+    const [relatedItems, setRelatedItems] = useState([]);
 
     const fetchProductData = async () => {
         const product = products.find(product => product._id === id);
         setProductData(product);
+        try {
+            if (product?.image?.length) {
+                setMainIndex(0);
+                setMainImage(product.image[0]);
+            }
+        } catch {}
+    }
+
+    const updateRelated = (key) => {
+        if (!productData) return;
+        const value = key === 'brand'
+          ? (productData.brand || '').toLowerCase()
+          : (productData.category || '').toLowerCase();
+        const list = products
+          .filter(p => p._id !== productData._id)
+          .filter(p => {
+            const field = key === 'brand' ? (p.brand || '') : (p.category || '');
+            return field.toLowerCase() === value;
+          })
+          .slice(0, 12);
+        setRelatedKey(key);
+        setRelatedItems(list);
+        try { document.getElementById('related-section')?.scrollIntoView({ behavior: 'smooth' }); } catch {}
     }
 
     useEffect(() => {
@@ -35,11 +61,21 @@ const Product = () => {
                 <div className="px-5 lg:px-16 xl:px-20">
                     <div className="rounded-lg overflow-hidden bg-gray-500/10 mb-4">
                         <Image
-                            src={mainImage || productData.image[0]}
+                            src={mainImage ?? productData.image[mainIndex] ?? assets.upload_area}
                             alt="alt"
                             className="w-full h-auto object-cover mix-blend-multiply"
                             width={1280}
                             height={720}
+                            unoptimized
+                            onError={() => {
+                                const arr = productData.image || [];
+                                if (mainIndex + 1 < arr.length) {
+                                    setMainIndex(mainIndex + 1);
+                                    setMainImage(arr[mainIndex + 1]);
+                                } else {
+                                    setMainImage(assets.upload_area);
+                                }
+                            }}
                         />
                     </div>
 
@@ -47,7 +83,7 @@ const Product = () => {
                         {productData.image.map((image, index) => (
                             <div
                                 key={index}
-                                onClick={() => setMainImage(image)}
+                                onClick={() => { setMainIndex(index); setMainImage(image); }}
                                 className="cursor-pointer rounded-lg overflow-hidden bg-gray-500/10"
                             >
                                 <Image
@@ -56,6 +92,9 @@ const Product = () => {
                                     className="w-full h-auto object-cover mix-blend-multiply"
                                     width={1280}
                                     height={720}
+                                    unoptimized
+                                    loading="lazy"
+                                    onError={(e) => { try { e.currentTarget.style.display = 'none'; } catch (_) {} }}
                                 />
                             </div>
 
@@ -96,7 +135,7 @@ const Product = () => {
                             <tbody>
                                 <tr>
                                     <td className="text-gray-600 font-medium">Marca</td>
-                                    <td className="text-gray-800/50 ">Genérico</td>
+                                    <td className="text-gray-800/50 "><span className="cursor-pointer hover:text-orange-600" onClick={() => updateRelated('brand')}>{productData.brand || 'Genérico'}</span></td>
                                 </tr>
                                 <tr>
                                     <td className="text-gray-600 font-medium">Color</td>
@@ -104,9 +143,7 @@ const Product = () => {
                                 </tr>
                                 <tr>
                                     <td className="text-gray-600 font-medium">Categoría</td>
-                                    <td className="text-gray-800/50">
-                                        {productData.category}
-                                    </td>
+                                    <td className="text-gray-800/50"><span className="cursor-pointer hover:text-orange-600" onClick={() => updateRelated('category')}>{productData.category || 'Uncategorized'}</span></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -122,17 +159,21 @@ const Product = () => {
                     </div>
                 </div>
             </div>
-            <div className="flex flex-col items-center">
+            <div id="related-section" className="flex flex-col items-center">
                 <div className="flex flex-col items-center mb-4 mt-16">
-                    <p className="text-3xl font-medium">Productos <span className="font-medium text-orange-600">destacados</span></p>
+                    <p className="text-3xl font-medium">Productos <span className="font-medium text-orange-600">{relatedKey ? 'relacionados' : 'destacados'}</span></p>
                     <div className="w-28 h-0.5 bg-orange-600 mt-2"></div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-6 pb-14 w-full">
-                    {products.slice(0, 5).map((product, index) => <ProductCard key={index} product={product} />)}
+                    {(relatedKey ? relatedItems : products.slice(0, 5)).map((product, index) => (
+                        <ProductCard key={index} product={product} />
+                    ))}
                 </div>
-                <button className="px-8 py-2 mb-16 border rounded text-gray-500/70 hover:bg-slate-50/90 transition">
-                    Ver más
-                </button>
+                {!relatedKey && (
+                    <button className="px-8 py-2 mb-16 border rounded text-gray-500/70 hover:bg-slate-50/90 transition">
+                        Ver más
+                    </button>
+                )}
             </div>
         </div>
         <Footer />

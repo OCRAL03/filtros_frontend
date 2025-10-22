@@ -1,25 +1,25 @@
-import logo from "./logo.svg";
-import search_icon from "./search_icon.svg";
-import user_icon from "./user_icon.svg";
-import cart_icon from "./cart_icon.svg";
-import add_icon from "./add_icon.svg";
-import order_icon from "./order_icon.svg";
-import instagram_icon from "./instagram_icon.svg";
-import facebook_icon from "./facebook_icon.svg";
-import twitter_icon from "./twitter_icon.svg";
-import box_icon from "./box_icon.svg";
-import product_list_icon from "./product_list_icon.svg";
-import menu_icon from "./menu_icon.svg";
-import arrow_icon from "./arrow_icon.svg";
+import logo from "./logo-sarcos.png";
+import search_icon from "./icon/search_icon.svg";
+import user_icon from "./icon/user_icon.svg";
+import cart_icon from "./icon/cart_icon.svg";
+import add_icon from "./icon/add_icon.svg";
+import order_icon from "./icon/order_icon.svg";
+import instagram_icon from "./icon/instagram_icon.svg";
+import facebook_icon from "./icon/facebook_icon.svg";
+import twitter_icon from "./icon/twitter_icon.svg";
+import box_icon from "./icon/box_icon.svg";
+import product_list_icon from "./icon/product_list_icon.svg";
+import menu_icon from "./icon/menu_icon.svg";
+import arrow_icon from "./icon/arrow_icon.svg";
 import increase_arrow from "./increase_arrow.svg";
 import decrease_arrow from "./decrease_arrow.svg";
-import arrow_right_icon_colored from "./arrow_right_icon_colored.svg";
+import arrow_right_icon_colored from "./icon/arrow_right_icon_colored.svg";
 import my_location_image from "./my_location_image.svg";
 import arrow_icon_white from "./arrow_icon_white.svg";
-import heart_icon from "./heart_icon.svg";
-import star_icon from "./star_icon.svg";
-import redirect_icon from "./redirect_icon.svg";
-import star_dull_icon from "./star_dull_icon.svg";
+import heart_icon from "./icon/heart_icon.svg";
+import star_icon from "./icon/star_icon.svg";
+import redirect_icon from "./icon/redirect_icon.svg";
+import star_dull_icon from "./icon/star_dull_icon.svg";
 import header_headphone_image from "./header_headphone_image.png";
 import header_playstation_image from "./header_playstation_image.png";
 import header_macbook_image from "./header_macbook_image.png";
@@ -46,18 +46,25 @@ import product_details_page_apple_earphone_image2 from "./product_details_page_a
 import product_details_page_apple_earphone_image3 from "./product_details_page_apple_earphone_image3.png";
 import product_details_page_apple_earphone_image4 from "./product_details_page_apple_earphone_image4.png";
 import product_details_page_apple_earphone_image5 from "./product_details_page_apple_earphone_image5.png";
-import canon_logo from "./canon-logo.svg";
-import gibson_logo from "./gibson-5.svg";
-import fender_logo from "./fender-1.svg";
-import ibanez_logo from "./ibanez.svg";
-import bajaj_logo from "./bajaj-auto-logo.svg";
-import roland_logo from "./roland-2.svg";
-import yamaha_logo from "./yamaha-2-1.svg";
-import ktm_logo from "./ktm.svg";
-import lg_logo from "./lg-logo-2015--1.svg";
-import whirlpool_logo from "./whirlpool-corporation-logo.svg";
-import oster_logo from "./oster.svg";
-import mabe_logo from "./mabe.svg";
+import canon_logo from "./logos/canon-logo.svg";
+import gibson_logo from "./logos/gibson-5.svg";
+import fender_logo from "./logos/fender-1.svg";
+import ibanez_logo from "./logos/ibanez.svg";
+import bajaj_logo from "./logos/bajaj-auto-logo.svg";
+import roland_logo from "./logos/roland-2.svg";
+import yamaha_logo from "./logos/yamaha-2-1.svg";
+import ktm_logo from "./logos/ktm.svg";
+import lg_logo_2015_1 from "./logos/lg-logo-2015--1.svg";
+import whirlpool_logo from "./logos/whirlpool-corporation-logo.svg";
+import mabe_logo from "./logos/mabe.svg";
+import oster_logo from "./logos/oster.svg";
+import xiaomi_logo from "./logos/xiaomi-1.svg";
+import lenovo_logo from "./logos/lenovo-2.svg";
+import motorola_logo from "./logos/motorola-6.svg";
+import tp_link_logo from "./logos/tp-link.svg";
+import toshiba_logo from "./logos/toshiba-3.svg";
+import playstation_logo from "./logos/playstation-6.svg";
+import electrolux_logo from "./logos/electrolux-2.svg";
 
 export const assets = {
   logo,
@@ -443,11 +450,11 @@ export const navCategories = [
   {
     title: "Tecnología",
     brands: [
-      { name: "Apple", value: "Apple", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/apple.svg" },
-      { name: "Samsung", value: "Samsung", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/samsung.svg" },
-      { name: "Sony", value: "Sony", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/sony.svg" },
-      { name: "Canon", value: "Canon", logo: canon_logo },
-      { name: "Bose", value: "Bose", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/bose.svg" },
+      { name: "Apple", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/master/icons/apple.svg" },
+      { name: "Samsung", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/master/icons/samsung.svg" },
+      { name: "Sony", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/master/icons/sony.svg" },
+      { name: "Canon", logo: canon_logo },
+      { name: "Bose", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/master/icons/bose.svg" },
     ],
     items: [
       { name: "Laptops", value: "Laptop" },
@@ -459,11 +466,11 @@ export const navCategories = [
   {
     title: "Hogar y electrohogar",
     brands: [
-      { name: "Oster", value: "Oster", logo: oster_logo },
-      { name: "LG", value: "LG", logo: lg_logo },
-      { name: "Samsung", value: "Samsung", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/samsung.svg" },
-      { name: "Mabe", value: "Mabe", logo: mabe_logo },
-      { name: "Whirlpool", value: "Whirlpool", logo: whirlpool_logo },
+      { name: "Oster", logo: oster_logo },
+      { name: "LG", logo: lg_logo_2015_1 },
+      { name: "Samsung", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/master/icons/samsung.svg" },
+      { name: "Mabe", logo: mabe_logo },
+      { name: "Whirlpool", logo: whirlpool_logo },
     ],
     items: [
       { name: "Muebles", value: "Accessories" },
@@ -475,11 +482,11 @@ export const navCategories = [
   {
     title: "Vehículos",
     brands: [
-      { name: "Honda", value: "Honda", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/honda.svg" },
-      { name: "Yamaha", value: "Yamaha", logo: yamaha_logo },
-      { name: "Bajaj", value: "Bajaj", logo: bajaj_logo },
-      { name: "Suzuki", value: "Suzuki", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/suzuki.svg" },
-      { name: "KTM", value: "KTM", logo: ktm_logo },
+      { name: "Honda", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/master/icons/honda.svg" },
+      { name: "Yamaha", logo: yamaha_logo },
+      { name: "Bajaj", logo: bajaj_logo },
+      { name: "Suzuki", logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/master/icons/suzuki.svg" },
+      { name: "KTM", logo: ktm_logo },
     ],
     items: [
       { name: "Motos lineales", value: "Accessories" },
@@ -488,11 +495,11 @@ export const navCategories = [
   {
     title: "Instrumentos musicales",
     brands: [
-      { name: "Fender", value: "Fender", logo: fender_logo },
-      { name: "Gibson", value: "Gibson", logo: gibson_logo },
-      { name: "Yamaha", value: "Yamaha", logo: yamaha_logo },
-      { name: "Roland", value: "Roland", logo: roland_logo },
-      { name: "Ibanez", value: "Ibanez", logo: ibanez_logo },
+      { name: "Fender", logo: fender_logo },
+      { name: "Gibson", logo: gibson_logo },
+      { name: "Yamaha", logo: yamaha_logo },
+      { name: "Roland", logo: roland_logo },
+      { name: "Ibanez", logo: ibanez_logo },
     ],
     items: [
       { name: "Guitarras", value: "Accessories" },

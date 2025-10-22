@@ -15,7 +15,7 @@ import { Marca } from "../../marca/entities/marca.entity";
 @Index("fk_articulo_categoria_1", ["idCategoria"], {})
 @Index("fk_articulo_marca_2", ["idMarca"], {})
 @Index("fk_articulo_condicion_producto_3", ["idCondicionProducto"], {})
-@Entity("articulo", { schema: "sarcos_db" })
+@Entity("articulo")
 export class Articulo {
   @PrimaryGeneratedColumn({ type: "int", name: "id_articulo" })
   idArticulo: number;
