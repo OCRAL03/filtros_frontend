@@ -11,6 +11,7 @@ export class MarcaService {
     @InjectRepository(Marca)
     private marcaRepository: Repository<Marca>,
   ) {}
+  
   create(createMarcaDto: CreateMarcaDto) {
     const newMarca = this.marcaRepository.create(createMarcaDto);
     return this.marcaRepository.save(newMarca);

@@ -20,6 +20,15 @@ const nextConfig = {
             },
         ],
     },
+    async rewrites() {
+        // Proxy client-side `/api/*` requests from Next dev server (3000) to backend (4000)
+        return [
+            {
+                source: '/api/:path*',
+                destination: 'http://localhost:4000/api/:path*',
+            },
+        ];
+    },
 };
 
 export default nextConfig;

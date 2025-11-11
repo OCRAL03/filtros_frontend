@@ -1,10 +1,18 @@
 'use client'
-import { productsDummyData, userDummyData, navCategories } from "@/assets/assets";
+import { assets } from "@/assets/assets";
+import { getBrandsForCategory } from "@/assets/brandLogos";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
-import { getArticulos } from "@/context/articulo-api";
+import { getProductos, getProductosFiltered } from "@/context/producto-api";
 import { getCategorias } from "@/context/categoria-api";
-import { classifyHierarchy } from "@/context/filters";
+import { getSubCategoriasByCategoria } from "@/context/subcategoria-api";
+import { getTiposProductoBySubCategoria } from "@/context/tipo-producto-api";
+import { getMarcas } from "@/context/marca-api";
+import { getTiendas } from "@/context/tienda-api";
+import { getApiBaseUrl } from "@/context/api";
+import { classifyHierarchy } from "@/components/filters/filters.utils";
+import { FILTERS_MAP } from "@/components/filters/filters.constants";
+import { normalizeSrcWithFallback } from "@/utils/imageResolver";
 
 export const AppContext = createContext();
 
@@ -18,378 +26,449 @@ export const AppContextProvider = (props) => {
     const router = useRouter()
 
     const [products, setProducts] = useState([])
+    const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20 })
+    const [filterMeta, setFilterMeta] = useState({ precio_rango: undefined, atributos_disponibles: undefined })
+    const [brands, setBrands] = useState([])
     const [userData, setUserData] = useState(false)
     const [isSeller, setIsSeller] = useState(true)
     const [cartItems, setCartItems] = useState({})
     const [categoriesMenu, setCategoriesMenu] = useState([])
+    const [stores, setStores] = useState([])
 
-    // Utilidades de normalización (ignorar mayúsculas y acentos)
     const normalize = (s) => (s || "").toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-    // Taxonomía definitiva: grupos principales y sinónimos para derivación
-    const RAW_GROUPS = {
-      "Electrónica y Tecnología": [
-        // Celulares y accesorios
-        "CELULARES","SMARTPHONES","FUNDAS","CARGADORES","POWER BANKS",
-        // Computación
-        "LAPTOPS","LAPTOP","COMPUTADORAS","PC","MONITORES","TECLADOS","IMPRESORAS","PRINTER","IMPRESORA",
-        // Audio
-        "AUDIFONOS","AURICULARES","HEADPHONE","EARPHONE","PARLANTES","SPEAKERS","BARRAS DE SONIDO",
-        // Video y TV
-        "TELEVISORES","TV","PROYECTORES","DECODIFICADORES",
-        // Cámaras
-        "CAMARAS","CAMARAS DIGITALES","CAMARAS DEPORTIVAS","CAMARAS DE SEGURIDAD","CAMERA",
-        // Consolas y videojuegos
-        "PLAYSTATION","XBOX","NINTENDO","VIDEOJUEGOS","ACCESORIOS",
-        // Smart Home
-        "ASISTENTES INTELIGENTES","ENCHUFES INTELIGENTES"
-      ],
-      "Línea Blanca y Electrodomésticos": [
-        // Cocina
-        "COCINAS","HORNOS","MICROONDAS",
-        // Refrigeración
-        "REFRIGERADORAS","CONGELADORAS",
-        // Lavado
-        "LAVADORAS","SECADORAS",
-        // Climatización
-        "AIRES ACONDICIONADOS","CALEFACTORES","VENTILADORES",
-        // Pequeños electrodomésticos
-        "LICUADORAS","BATIDORAS","PLANCHAS","ASPIRADORAS"
-      ],
-      "Muebles y Decoración": [
-        "SOFAS","SECCIONALES","MESAS DE CENTRO","MUEBLES DE TV",
-        "MESAS","SILLAS","VITRINAS","JUEGOS DE COMEDOR",
-        "CAMAS","COLCHONES","TARIMAS","CABECERAS","VELADORES","ROPERO","COMODA",
-        "ESCRITORIOS","SILLAS ERGONOMICAS","ESTANTERIAS",
-        "CUADROS","RELOJES","ALFOMBRAS",
-        "LAMPARAS DE MESA","LAMPARAS DE PIE","FOCOS","LUCES LED","APLIQUES"
-      ],
-      "Hogar y Organización": [
-        "ASPIRADORAS","UTENSILIOS","OLLAS","SARTENES","ORGANIZADORES","PLANCHAS","CAMARAS","ALARMAS","GRAMA SINTETICO","HERRAMIENTAS"
-      ],
-      "Belleza y Cuidado Personal": [
-        "AFEITADORAS","PRODUCTOS PARA BARBERIA","PLANCHAS DE CABELLO"
-      ],
-      "Juguetes y Entretenimiento": [
-        "JUGUETES","JUGUETES EDUCATIVOS","JUEGOS DE MESA","CARTAS","TABLEROS","DRONES","ARTE Y MANUALIDADES"
-      ],
-      "Motos y Movilidad Eléctrica": [
-        "MOTOCICLETAS","MOTOS","125CC","150CC","250CC","DEPORTIVAS","AUTOMATICAS",
-        "TRIMOVILES","CARGUEROS","DE CARGA","DE PASAJEROS","ELECTRICOS",
-        "MOTOS ELECTRICAS","SCOOTERS URBANOS","ELECTRICAS DE REPARTO","BICIMOTOS",
-        "ACCESORIOS PARA MOTOCICLETAS","CASCOS","GUANTES","BAULES","LUCES LED",
-        "EQUIPAMIENTO DEL CONDUCTOR","RODILLERAS","IMPERMEABLES",
-        "HERRAMIENTAS Y TALLER","CARGADORES DE BATERIA"
-      ],
-    };
 
-    const GROUPS_NORMALIZED = Object.fromEntries(
-      Object.entries(RAW_GROUPS).map(([group, items]) => [
-        group,
-        new Set(items.map((i) => normalize(i)))
-      ])
-    );
+    const mapProductoToProduct = (a) => {
+        const precioVenta = Number(a?.precioVenta ?? 0);
+        const descuento = Number(a?.descuento ?? 0);
+        const offerPrice = precioVenta > 0
+            ? Math.round(precioVenta * (1 - descuento / 100) * 100) / 100
+            : 0;
 
-    const deriveGroupFromCategoryName = (name) => {
-      const n = normalize(name);
-      for (const [group, itemsSet] of Object.entries(GROUPS_NORMALIZED)) {
-        if (itemsSet.has(n)) return group;
-      }
-      for (const group of Object.keys(RAW_GROUPS)) {
-        if (normalize(group) === n) return group;
-      }
-      // Mapeos adicionales para términos frecuentes
-      if (n === normalize('ACCSESORIOS') || n === normalize('ACCESSORIES')) return 'Electrónica y Tecnología';
-      if (n === normalize('ELECTROHOGAR')) return 'Línea Blanca y Electrodomésticos';
-      return undefined;
-    };
+        const brandName = a?.idMarca2?.nombre ?? undefined;
+        const categoryName = a?.idCategoria2?.nombre ?? undefined;
 
-    const fetchProductData = async () => {
-        try {
-            const articulos = await getArticulos();
-            const mapped = (articulos || []).map((a) => {
-                const precioVenta = Number(a?.precioVenta ?? 0);
-                const descuento = Number(a?.descuento ?? 0);
-                const offerPrice = precioVenta > 0
-                    ? Math.round(precioVenta * (1 - descuento / 100) * 100) / 100
-                    : 0;
-                const brandName = a?.idMarca2?.nombre ?? undefined;
-                const categoryName = a?.idCategoria2?.nombre ?? undefined;
-                const rawImagen = a?.imagen;
-                // Utilidad: ¿parece nombre de archivo de imagen?
-                // Token permisivo para nombres de imagen (con o sin extensión) y URLs
-                const isLikelyToken = (value) => {
-                  const s = String(value || '').trim();
-                  if (!s) return false;
-                  if (/^https?:\/\//i.test(s)) return true; // permitir URLs externas
-                  let t = s.replace(/^([A-Za-z]):[\\\/]/, '').replace(/\\/g, '/').split('/')
-                    .filter(Boolean).pop() || s;
-                  t = t.replace(/["']/g, '');
-                  if (!t) return false;
-                  if (/^no\s*tiene$/i.test(t) || /^sin\s*imagen$/i.test(t)) return false;
-                  return /^[\w\-. ]+(\.[a-z0-9]+)?$/i.test(t);
-                };
+        const rawImagen = a?.imagen;
 
-                // Expande un token sin extensión a múltiples candidatos con extensiones comunes
-                const expandCandidates = (token) => {
-                  const s = String(token || '').trim();
-                  if (!s) return [];
-                  if (/^https?:\/\//i.test(s)) return [s];
-                  const base = s.replace(/^([A-Za-z]):[\\\/]/, '').replace(/\\/g, '/').split('/')
-                    .filter(Boolean).pop() || s;
-                  const basename = base.replace(/["']/g, '');
-                  if (/\.[a-z0-9]+$/i.test(basename)) return [basename];
-                  const exts = ['png','jpg','jpeg','jfif','webp'];
-                  return exts.map((ext) => `${basename}.${ext}`);
-                };
+        const deriveTokensFromName = (name, brand) => {
+          const tokens = new Set();
+          const s = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const b = String(brand || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          if (!s) return [];
+          // Modelos alfanuméricos típicos (ej: RR121H, UN55DU8000G, BLSTKAG-VPB, LT-75KB538)
+          const reModel = /[A-Z]{2,}[A-Z0-9-]*\d+[A-Z0-9-]*/g;
+          const upper = s.toUpperCase();
+          (upper.match(reModel) || []).forEach((m) => tokens.add(m));
+          // Palabras con dígitos o guiones que parecen códigos
+          s.split(/\s+/).forEach((w) => {
+            const uw = w.toUpperCase();
+            if ((/[0-9]/.test(uw) || /-/.test(uw)) && /[A-Z]/.test(uw)) {
+              tokens.add(uw);
+            }
+          });
+          // Variante sin espacios ni guiones del nombre completo
+          const compact = s.replace(/[-\s]+/g, '');
+          if (compact.length >= 6) tokens.add(compact.toUpperCase());
+          // Marca + modelo
+          if (b) {
+            (Array.from(tokens)).forEach((t) => tokens.add(`${b} ${t}`.toUpperCase()));
+          }
+          return Array.from(tokens);
+        };
+        
+        const isLikelyToken = (value) => {
+          const s = String(value || '').trim();
+          if (!s) return false;
+          if (/^https?:\/\//i.test(s)) return true;
+          let t = s.replace(/^([A-Za-z]):[\\\/]/, '').replace(/\\/g, '/').split('/')
+            .filter(Boolean).pop() || s;
+          t = t.replace(/["']/g, '');
+          if (!t) return false;
+          if (/^no\s*tiene$/i.test(t) || /^sin\s*imagen$/i.test(t)) return false;
+          return /^[\w\-. ]+(\.[a-z0-9]+)?$/i.test(t);
+        };
 
-                // Convierte la cadena/paths a tokens de imagen (soporta JSON arrays y separadores comunes)
-                const toBasenameList = (value) => {
-                  if (Array.isArray(value)) return value.map(String).filter(isLikelyToken);
-                  const v = String(value ?? '').trim();
-                  // Intentar parsear como JSON array
-                  try {
-                    if (/^\s*\[/.test(v)) {
-                      const arr = JSON.parse(v);
-                      if (Array.isArray(arr)) return arr.map(String).filter(isLikelyToken);
-                    }
-                  } catch (_) {}
-                  if (!v) return [];
-                  // Si luce como un solo token (sin separadores), devolver tal cual
-                  if (!/[|;,\n]/.test(v)) {
-                    return [v];
-                  }
-                  // Dividir por | , ; , saltos de línea
-                  return v
-                    .split(/[|;]\s*|\r?\n|,\s*(?![^\[]*\])/)
-                    .filter(Boolean)
-                    .map((p) => String(p).trim())
-                    .filter(isLikelyToken);
-                };
+        const expandCandidates = (token) => {
+          const s = String(token || '').trim();
+          if (!s) return [];
+          if (/^https?:\/\//i.test(s)) return [s];
+          const base = s.replace(/^([A-Za-z]):[\\\/]/, '').replace(/\\/g, '/').split('/')
+            .filter(Boolean).pop() || s;
+          const basename = base.replace(/["']/g, '');
+          if (/\.[a-z0-9]+$/i.test(basename)) return [basename];
+          const exts = ['png','jpg','jpeg','jfif','webp'];
+          return exts.map((ext) => `${basename}.${ext}`);
+        };
 
-                const normalizeSrc = (src) => {
-                  if (!src || typeof src !== 'string') return src;
-                  if (/^https?:\/\//i.test(src)) return encodeURI(src);
-                  let s = src.trim().replace(/^\/+/, '').replace(/\\/g, '/');
-                  s = s.replace(/^([A-Za-z]):\//, '');
-                  // Siempre servimos desde Next public: /assets/articulos
-                  const basename = s.split('/').filter(Boolean).pop() || s;
-                  const url = `/assets/articulos/${basename}`;
-                  return encodeURI(url);
-                };
+        const toBasenameList = (value) => {
+          if (Array.isArray(value)) return value.map(String).filter(isLikelyToken);
+          const v = String(value ?? '').trim();
+          try {
+            if (/^\s*\[/.test(v)) {
+              const arr = JSON.parse(v);
+              if (Array.isArray(arr)) return arr.map(String).filter(isLikelyToken);
+            }
+          } catch (_) {}
+          if (!v) return [];
+          if (!/[|;,\n]/.test(v)) {
+            return [v];
+          }
+          return v
+            .split(/[|;]\s*|\r?\n|,\s*(?![^\[]*\])/)
+            .filter(Boolean)
+            .map((p) => String(p).trim())
+            .filter(isLikelyToken);
+        };
 
-                // Construir arreglo de imágenes con candidatos y deduplicación
-                const names = Array.isArray(rawImagen)
-                  ? rawImagen
-                  : (typeof rawImagen === 'string' ? toBasenameList(rawImagen) : []);
-                let images = names
-                  .flatMap(expandCandidates)
-                  .map(normalizeSrc)
-                  .filter(Boolean);
-                // Deduplicar preservando orden
-                images = Array.from(new Set(images));
-                // Log de diagnóstico en desarrollo: candidatos y resolución
-                try {
-                  if (typeof window !== 'undefined') {
-                    const dbg = {
-                      id: a?.idArticulo ?? a?._id,
-                      name: a?.nombre,
-                      rawImagen,
-                      tokens: names,
-                      candidates: names.flatMap(expandCandidates),
-                      resolved: images
-                    };
-                    console.debug('[QuickCart][ImageResolver]', dbg);
-                  }
-                } catch {}
-                if (!images || images.length === 0) {
-                  images = [assets.upload_area || "/assets/logo-sarcos.png"];
-                }
+        const normalizeSrc = (src) => normalizeSrcWithFallback(src);
 
-                // Clasificación jerárquica según organizacion.md
-                const classInfo = classifyHierarchy({
-                  name: a?.nombre,
-                  description: a?.descripcion,
-                  category: categoryName,
-                });
-                const OFFICIAL_GROUPS = {
-                  'Electronica y Tecnologia': 'Electrónica y Tecnología',
-                  'Linea Blanca y Electrodomesticos': 'Línea Blanca y Electrodomésticos',
-                  'Muebles y Decoracion': 'Muebles y Decoración',
-                  'Hogar y Organizacion': 'Hogar y Organización',
-                  'Belleza y Cuidado Personal': 'Belleza y Cuidado Personal',
-                  'Juguetes y Entretenimiento': 'Juguetes y Entretenimiento',
-                  'Motos y Movilidad Electrica': 'Motos y Movilidad Eléctrica',
-                };
-                const classifiedGroup = OFFICIAL_GROUPS[classInfo?.category] || undefined;
-                const resolvedGroup = (categoryName ? deriveGroupFromCategoryName(categoryName) : undefined) || classifiedGroup;
+        // Tokens provenientes del backend (imagen)
+        const backendTokens = Array.isArray(rawImagen)
+          ? rawImagen
+          : (typeof rawImagen === 'string' ? toBasenameList(rawImagen) : []);
 
-                return {
-                    _id: String(a?.idArticulo ?? a?._id ?? Math.random().toString(36).slice(2)),
-                    name: a?.nombre ?? "",
-                    description: a?.descripcion ?? "",
-                    price: precioVenta,
-                    offerPrice,
-                    image: images,
-                    category: categoryName || "Sin categoría",
-                    categoryGroup: resolvedGroup,
-                    subcategory: classInfo?.subcategory || undefined,
-                    types: classInfo?.types || [],
-                    brand: brandName || "Genérico",
-                    date: a?.fechaIngreso ? new Date(a.fechaIngreso).getTime() : Date.now(),
-                    __v: 0,
-                };
-            });
-            setProducts(mapped);
-        } catch (err) {
-            console.error("Fallo al cargar artículos del backend, usando dummy:", err);
-            setProducts(productsDummyData);
+        // Tokens derivados del nombre del producto/marca
+        const derivedTokens = deriveTokensFromName(a?.nombre, brandName);
+
+        const names = [...backendTokens, ...derivedTokens];
+
+        let images = names
+          .flatMap(expandCandidates)
+          .map(normalizeSrc)
+          .filter(Boolean);
+        images = Array.from(new Set(images));
+
+        if (process.env.NODE_ENV === 'development') {
+          try {
+            if (typeof window !== 'undefined') {
+              const dbg = {
+                id: a?.idProducto ?? a?.idArticulo ?? a?._id,
+                name: a?.nombre,
+                rawImagen,
+                tokens: names,
+                candidates: names.flatMap(expandCandidates),
+                resolved: images
+              };
+              console.debug('[QuickCart][ImageResolver]', dbg);
+            }
+          } catch {}
         }
+
+        if (!images || images.length === 0) {
+          images = [assets.upload_area || "/assets/logo-sarcos.png"];
+        }
+
+        const classInfo = classifyHierarchy({
+          name: a?.nombre,
+          description: a?.descripcion,
+          category: categoryName,
+        });
+
+        const OFFICIAL_GROUPS = {
+          'tecnologia': 'Tecnologí­a',
+          'lineaBlanca': 'Línea Blanca',
+          'hogar': 'Hogar',
+          'dormitorio': 'Dormitorio',
+          'muebles': 'Muebles',
+          'oficina': 'Oficina',
+          'cuidadoPersonal': 'Cuidado Personal',
+          'entretenimiento': 'Entretenimiento',
+          'motos': 'Motos'
+        };
+
+        const classifiedGroup = classInfo?.category 
+          ? OFFICIAL_GROUPS[classInfo.category] 
+          : undefined;
+
+        return {
+          _id: a?.idProducto ?? a?._id,
+          name: a?.nombre || 'Sin nombre',
+          description: a?.descripcion || '',
+          price: precioVenta,
+          offerPrice: offerPrice,
+          discount: descuento,
+          image: images,
+          category: categoryName,
+          subCategory: a?.idSubCategoria2?.nombre ?? undefined,
+          productType: a?.idTipoProducto2?.nombre ?? undefined,
+          brand: brandName,
+          brandId: a?.idMarca2?.idMarca ?? a?.idMarca2?.id ?? undefined,
+          bestseller: a?.bestseller || false,
+          stock: a?.stock ?? 0,
+          stores: Array.isArray(a?.productoTiendas)
+            ? (a.productoTiendas || []).map((pt) => ({
+                id: pt?.idTienda2?.idTienda ?? pt?.idTienda,
+                nombre: pt?.idTienda2?.nombre ?? undefined,
+                direccion: pt?.idTienda2?.direccion ?? undefined,
+              })).filter((s) => s?.id)
+            : [],
+          
+          classifiedCategory: classInfo?.category,
+          classifiedCategoryLabel: classInfo?.categoryLabel,
+          classifiedSubcategory: classInfo?.subcategory,
+          classifiedSubcategoryLabel: classInfo?.subcategoryLabel,
+          classifiedTypes: classInfo?.types || [],
+          classificationConfidence: classInfo?.confidence || 0,
+          
+          group: classifiedGroup,
+          
+          rawData: {
+            idCategoria: a?.idCategoria ?? a?.idCategoria2?.idCategoria,
+            idSubCategoria: a?.idSubCategoria ?? a?.idSubCategoria2?.idSubCategoria,
+            idTipoProducto: a?.idTipoProducto ?? a?.idTipoProducto2?.idTipoProducto,
+            idMarca: a?.idMarca ?? a?.idMarca2?.idMarca
+          }
+        };
+    };
+
+    const fetchProductData = async (options = {}) => {
+        try {
+            const data = await getProductosFiltered({}, { signal: options?.signal });
+            const list = Array.isArray(data) ? data : (data?.productos || []);
+            const mapped = (list || []).map(mapProductoToProduct);
+            setProducts(mapped);
+            
+            if (!Array.isArray(data)) {
+              setPagination(data?.paginacion || { total: mapped.length, page: 1, limit: 20 });
+              setFilterMeta(data?.metadatos_filtros || { 
+                precio_rango: undefined, 
+                atributos_disponibles: undefined 
+              });
+            }
+        } catch (err) {
+            console.warn("Fallo al cargar productos del backend:", err?.message || err);
+            setProducts([]);
+            setPagination({ total: 0, page: 1, limit: 20 });
+            setFilterMeta({ precio_rango: undefined, atributos_disponibles: undefined });
+        }
+    }
+
+    /**
+     * Carga productos con filtros aplicados
+     * @param {Object} filters - Objeto con filtros: { page, limit, search, category, subcategory, type, minPrice, maxPrice, brand }
+     */
+    const fetchProductsByFilters = async (filters = {}, options = {}) => {
+      try {
+        const data = await getProductosFiltered(filters, { signal: options?.signal });
+        const list = Array.isArray(data) ? data : (data?.productos || []);
+        const mapped = (list || []).map(mapProductoToProduct);
+        setProducts(mapped);
+        try {
+          if (process.env.NEXT_PUBLIC_DEBUG_FILTERS === '1') {
+            console.log('[QuickCart][Filters] Results', { filters, count: mapped.length, pagination: data?.paginacion });
+          }
+        } catch {}
+
+        // Fallback: si no hay resultados con filtros de categoría/subcategoría/tipo,
+        // intenta una búsqueda textual (q) usando el nombre aportado o resuelto.
+        if ((mapped.length === 0) && !filters?.q && !filters?.busqueda) {
+          const toStr = (v) => (v || '').toString().trim();
+          let fallbackText = toStr(filters?.tipo || filters?.subcategoria || filters?.categoria);
+
+          // Si sólo tenemos IDs, intenta resolver el nombre desde categoriesMenu
+          if (!fallbackText) {
+            try {
+              if (filters?.idTipoProducto) {
+                const targetId = Number(filters.idTipoProducto);
+                for (const cat of (categoriesMenu || [])) {
+                  for (const col of (cat?.columns || [])) {
+                    const found = (col?.types || []).find(tp => Number(tp?.id) === targetId);
+                    if (found?.name) { fallbackText = found.name; break; }
+                  }
+                  if (fallbackText) break;
+                }
+              } else if (filters?.idSubCategoria) {
+                const targetId = Number(filters.idSubCategoria);
+                for (const cat of (categoriesMenu || [])) {
+                  const foundCol = (cat?.columns || []).find(col => Number(col?.id) === targetId);
+                  if (foundCol?.title) { fallbackText = foundCol.title; break; }
+                }
+              } else if (filters?.idCategoria) {
+                const targetId = Number(filters.idCategoria);
+                const foundCat = (categoriesMenu || []).find(cat => Number(cat?.id) === targetId);
+                if (foundCat?.title) fallbackText = foundCat.title;
+              }
+            } catch {}
+          }
+
+          if (fallbackText) {
+            const fallbackParams = {
+              busqueda: fallbackText,
+            };
+            // Mantener filtros compatibles en el fallback
+            if (typeof filters?.priceMin === 'number') fallbackParams['priceMin'] = filters.priceMin;
+            if (typeof filters?.priceMax === 'number') fallbackParams['priceMax'] = filters.priceMax;
+            // El backend espera 'marcas' (lista separada por comas); nuestro builder aceptará array
+            if (filters?.idMarcaList) fallbackParams['marcas'] = filters.idMarcaList;
+            if (filters?.limit) fallbackParams['limit'] = filters.limit;
+            if (filters?.page) fallbackParams['page'] = filters.page;
+
+            try {
+              if (process.env.NEXT_PUBLIC_DEBUG_FILTERS === '1') {
+                console.log('[QuickCart][Filters] Fallback q-search', fallbackParams);
+              }
+            } catch {}
+
+            try {
+              const data2 = await getProductosFiltered(fallbackParams, { signal: options?.signal });
+              const list2 = Array.isArray(data2) ? data2 : (data2?.productos || []);
+              const mapped2 = (list2 || []).map(mapProductoToProduct);
+              setProducts(mapped2);
+
+              if (Array.isArray(data2)) {
+                setPagination({ total: mapped2.length, page: 1, limit: mapped2.length });
+                setFilterMeta({ precio_rango: undefined, atributos_disponibles: undefined });
+              } else {
+                setPagination(data2?.paginacion || { total: mapped2.length, page: filters?.page || 1, limit: filters?.limit || 20 });
+                setFilterMeta(data2?.metadatos_filtros || { precio_rango: undefined, atributos_disponibles: undefined });
+              }
+              // Termina aquí para no sobrescribir con el bloque posterior
+              return;
+            } catch (err2) {
+              // Si el fallback falla, continúa con el manejo estándar más abajo
+              try {
+                console.warn('Fallback de búsqueda textual falló:', err2?.message || err2);
+              } catch {}
+            }
+          }
+        }
+        
+        if (Array.isArray(data)) {
+          // Cuando el backend retorna sólo lista (sin metadatos), fijar paginación a una sola página
+          setPagination({ total: mapped.length, page: 1, limit: mapped.length });
+          setFilterMeta({ 
+            precio_rango: undefined, 
+            atributos_disponibles: undefined 
+          });
+        } else {
+          setPagination(data?.paginacion || { 
+            total: mapped.length, 
+            page: filters?.page || 1, 
+            limit: filters?.limit || 20 
+          });
+          setFilterMeta(data?.metadatos_filtros || { 
+            precio_rango: undefined, 
+            atributos_disponibles: undefined 
+          });
+        }
+      } catch (err) {
+        console.warn("Fallo al obtener productos filtrados:", err?.message || err);
+        setProducts([]);
+        setPagination({ total: 0, page: 1, limit: 20 });
+        setFilterMeta({ precio_rango: undefined, atributos_disponibles: undefined });
+      }
+    }
+
+    const fetchBrands = async (options = {}) => {
+      try {
+        const marcas = await getMarcas({ signal: options?.signal });
+        setBrands(marcas || []);
+      } catch (err) {
+        console.warn("Fallo al cargar marcas:", err?.message || err);
+        setBrands([]);
+      }
+    }
+
+    const fetchStores = async (options = {}) => {
+      try {
+        const tiendas = await getTiendas({ signal: options?.signal });
+        setStores(Array.isArray(tiendas) ? tiendas : []);
+      } catch (err) {
+        console.warn("Fallo al cargar tiendas:", err?.message || err);
+        setStores([]);
+      }
     }
 
     const fetchUserData = async () => {
-        setUserData(userDummyData)
+        setUserData(null)
     }
 
-    // Columnas definitivas y orden del menú
-    const GROUP_TITLES = [
-      "Electrónica y Tecnología",
-      "Línea Blanca y Electrodomésticos",
-      "Muebles y Decoración",
-      "Hogar y Organización",
-      "Belleza y Cuidado Personal",
-      "Juguetes y Entretenimiento",
-      "Motos y Movilidad Eléctrica",
-    ];
-
-    const FINAL_MENU_COLUMNS = {
-      "Electrónica y Tecnología": [
-        { title: "Celulares y accesorios", items: ["Smartphones", "Fundas", "Cargadores", "Power banks"] },
-        { title: "Computación", items: ["Laptops", "PC", "Monitores", "Teclados", "Impresoras"] },
-        { title: "Audio", items: ["Audífonos", "Parlantes", "Barras de sonido"] },
-        { title: "Video y TV", items: ["Televisores", "Proyectores", "Decodificadores"] },
-        { title: "Cámaras", items: ["Cámaras digitales", "Cámaras deportivas", "Cámaras de seguridad"] },
-        { title: "Consolas y videojuegos", items: ["PlayStation", "Xbox", "Nintendo", "Accesorios"] },
-        { title: "Smart Home", items: ["Asistentes inteligentes", "Enchufes inteligentes"] },
-      ],
-      "Línea Blanca y Electrodomésticos": [
-        { title: "Cocina", items: ["Cocinas", "Hornos", "Microondas"] },
-        { title: "Refrigeración", items: ["Refrigeradoras", "Congeladoras"] },
-        { title: "Lavado", items: ["Lavadoras", "Secadoras"] },
-        { title: "Climatización", items: ["Aires acondicionados", "Calefactores", "Ventiladores"] },
-        { title: "Pequeños electrodomésticos", items: ["Licuadoras", "Batidoras", "Planchas", "Aspiradoras"] },
-      ],
-      "Muebles y Decoración": [
-        { title: "Sala", items: ["Sofás", "Seccionales", "Mesas de centro", "Muebles de TV"] },
-        { title: "Comedor", items: ["Mesas", "Sillas", "Vitrinas", "Juegos de comedor"] },
-        { title: "Dormitorio", items: ["Camas", "Colchones", "Tarimas", "Cabeceras", "Veladores", "Roperos", "Cómodas"] },
-        { title: "Oficina", items: ["Escritorios", "Sillas ergonómicas", "Estanterías"] },
-        { title: "Decoración", items: ["Cuadros", "Relojes", "Alfombras"] },
-        { title: "Iluminación", items: ["Lámparas de mesa", "Lámparas de pie", "Focos", "Luces LED", "Apliques"] },
-      ],
-      "Hogar y Organización": [
-        { title: "Limpieza", items: ["Aspiradoras"] },
-        { title: "Cocina", items: ["Utensilios", "Ollas", "Sartenes"] },
-        { title: "Baño", items: ["Organizadores"] },
-        { title: "Lavandería", items: ["Planchas"] },
-        { title: "Seguridad", items: ["Cámaras", "Alarmas"] },
-        { title: "Jardín", items: ["Grama sintético", "Herramientas"] },
-      ],
-      "Belleza y Cuidado Personal": [
-        { title: "Cuidado personal", items: ["Afeitadoras", "Productos para barbería", "Planchas de cabello"] },
-      ],
-      "Juguetes y Entretenimiento": [
-        { title: "Juguetes educativos", items: ["Juguetes en general"] },
-        { title: "Juegos de mesa", items: ["Cartas", "Tableros"] },
-        { title: "Control remoto y robótica", items: ["Drones"] },
-        { title: "Arte y manualidades", items: [] },
-      ],
-      "Motos y Movilidad Eléctrica": [
-        { title: "Motocicletas lineales", items: ["125cc", "150cc", "250cc", "Deportivas", "Automáticas"] },
-        { title: "Trimóviles y cargueros", items: ["De carga", "De pasajeros", "Eléctricos"] },
-        { title: "Motos eléctricas y scooters", items: ["Scooters urbanos", "Eléctricas de reparto", "Bicimotos"] },
-        { title: "Accesorios para motocicletas", items: ["Cascos", "Guantes", "Baúles", "Luces LED"] },
-        { title: "Equipamiento del conductor", items: ["Rodilleras", "Impermeables"] },
-        { title: "Herramientas y taller", items: ["Cargadores de batería"] },
-      ],
-    };
-
-    // Construye el menú de categorías desde la BD y las reglas de grupos
-    const fetchCategoriesMenu = async () => {
+    const fetchCategoriesMenu = async (options = {}) => {
       try {
-        const categorias = await getCategorias();
-        const names = (categorias || []).map((c) => c?.nombre).filter(Boolean);
-        const byGroup = Object.fromEntries(Object.keys(RAW_GROUPS).map((g) => [g, new Map()]));
-        for (const name of names) {
-          const group = deriveGroupFromCategoryName(name);
-          if (!group) continue;
-          const key = normalize(name);
-          if (key === normalize(group)) continue;
-          if (!byGroup[group].has(key)) {
-            byGroup[group].set(key, name);
-          }
-        }
-        const fallbackBrands = new Map();
-        for (const cat of navCategories || []) {
-          const titleNorm = normalize(cat.title);
-          let resolvedGroup;
-          if (titleNorm === normalize('Tecnología')) resolvedGroup = 'Electrónica y Tecnología';
-          else if (titleNorm === normalize('Hogar y electrohogar')) resolvedGroup = 'Línea Blanca y Electrodomésticos';
-          else if (titleNorm === normalize('Vehículos')) resolvedGroup = 'Motos y Movilidad Eléctrica';
-          else if (titleNorm === normalize('Instrumentos musicales')) resolvedGroup = undefined;
-          else resolvedGroup = cat.title;
-          if (resolvedGroup) fallbackBrands.set(resolvedGroup, cat.brands || []);
-        }
-        const menu = GROUP_TITLES.map((group) => {
-          const derivedItems = Array.from(byGroup[group]?.values() || []);
-          const sourceItems = derivedItems.length ? derivedItems : (RAW_GROUPS[group] || []);
+        const categorias = await getCategorias({ signal: options?.signal });
+        
+        const menu = await Promise.all((categorias || []).map(async (cat) => {
+          const catId = cat?.idCategoria ?? cat?.id ?? cat?._id;
+          const catName = cat?.nombre || String(catId);
+          
+          const subcats = await getSubCategoriasByCategoria(catId, { signal: options?.signal });
+          
+          const columns = await Promise.all((subcats || []).map(async (sub) => {
+            const subId = sub?.idSubCategoria ?? sub?.id ?? sub?._id;
+            const subName = sub?.nombre || String(subId);
+            
+            // Obtiene tipos de productos de esta subcategorÃ­a
+            const tipos = await getTiposProductoBySubCategoria(subId, { signal: options?.signal });
+            
+            return {
+              title: subName,
+              id: subId,
+              slug: normalize(subName).replace(/\s+/g, '-'),
+              items: (tipos || []).map((tp) => tp?.nombre || '').filter(Boolean),
+              types: (tipos || [])
+                .map((tp) => ({
+                  id: tp?.idTipoProducto ?? tp?.id ?? tp?._id,
+                  name: tp?.nombre,
+                  slug: normalize(tp?.nombre || '').replace(/\s+/g, '-')
+                }))
+                .filter((o) => o?.id && o?.name),
+            };
+          }));
+          
           return {
-            title: group,
-            brands: fallbackBrands.get(group) || [],
-            items: (sourceItems || []).slice().sort().map((n) => ({ name: n, value: n })),
-            columns: FINAL_MENU_COLUMNS[group] || [],
+            title: catName,
+            id: catId,
+            slug: normalize(catName).replace(/\s+/g, '-'),
+            brands: getBrandsForCategory(catName),
+            items: [],
+            columns,
           };
-        });
+        }));
+        
         setCategoriesMenu(menu);
       } catch (error) {
-        console.error('Fallo al cargar categorías, usando fallback estático:', error);
-        const fallbackBrands = new Map();
-        for (const cat of navCategories || []) {
-          const titleNorm = normalize(cat.title);
-          let resolvedGroup;
-          if (titleNorm === normalize('Tecnología')) resolvedGroup = 'Electrónica y Tecnología';
-          else if (titleNorm === normalize('Hogar y electrohogar')) resolvedGroup = 'Línea Blanca y Electrodomésticos';
-          else if (titleNorm === normalize('Vehículos')) resolvedGroup = 'Motos y Movilidad Eléctrica';
-          else if (titleNorm === normalize('Instrumentos musicales')) resolvedGroup = undefined;
-          else resolvedGroup = cat.title;
-          if (resolvedGroup) fallbackBrands.set(resolvedGroup, cat.brands || []);
-        }
-        setCategoriesMenu(
-          GROUP_TITLES.map((g) => ({
-            title: g,
-            brands: fallbackBrands.get(g) || [],
-            items: (RAW_GROUPS[g] || []).slice().sort().map((n) => ({ name: n, value: n })),
-            columns: FINAL_MENU_COLUMNS[g] || [],
-          }))
-        );
+        console.warn('Fallo al cargar mapeo dinamico, usando fallback de FILTERS_MAP:', error?.message || error);
+
+        const menuFromFilters = Object.entries(FILTERS_MAP.categories).map(([catKey, catData]) => {
+          const columns = Object.entries(catData.subcategories).map(([subKey, subData]) => ({
+            title: subData.label,
+            id: subKey,
+            slug: normalize(subData.label).replace(/\s+/g, '-'),
+            items: subData.keywords,
+            types: subData.keywords.map((keyword, index) => ({
+              id: `${subKey}-${index}`,
+              name: keyword,
+              slug: normalize(keyword).replace(/\s+/g, '-')
+            }))
+          }));
+
+          return {
+            title: catData.label,
+            id: catKey,
+            slug: normalize(catData.label).replace(/\s+/g, '-'),
+            brands: getBrandsForCategory(catData.label),
+            items: [],
+            columns,
+          };
+        });
+
+        setCategoriesMenu(menuFromFilters);
       }
     };
 
-    const addToCart = async (itemId) => {
 
+    const addToCart = async (itemId) => {
         let cartData = structuredClone(cartItems);
         if (cartData[itemId]) {
             cartData[itemId] += 1;
-        }
-        else {
+        } else {
             cartData[itemId] = 1;
         }
         setCartItems(cartData);
-
     }
 
-    const updateCartQuantity = async (itemId, quantity) => {
 
+    const updateCartQuantity = async (itemId, quantity) => {
         let cartData = structuredClone(cartItems);
         if (quantity === 0) {
             delete cartData[itemId];
@@ -397,8 +476,8 @@ export const AppContextProvider = (props) => {
             cartData[itemId] = quantity;
         }
         setCartItems(cartData)
-
     }
+
 
     const getCartCount = () => {
         let totalCount = 0;
@@ -422,8 +501,14 @@ export const AppContextProvider = (props) => {
     }
 
     useEffect(() => {
-        fetchProductData()
-        fetchCategoriesMenu()
+        const ac = new AbortController();
+        fetchProductData({ signal: ac.signal })
+        fetchCategoriesMenu({ signal: ac.signal })
+        fetchBrands({ signal: ac.signal })
+        fetchStores({ signal: ac.signal })
+        return () => {
+          ac.abort();
+        }
     }, [])
 
     useEffect(() => {
@@ -431,14 +516,28 @@ export const AppContextProvider = (props) => {
     }, [])
 
     const value = {
-        currency, router,
-        isSeller, setIsSeller,
-        userData, fetchUserData,
-        products, fetchProductData,
+        currency, 
+        router,
+        isSeller, 
+        setIsSeller,
+        userData, 
+        fetchUserData,
+        products, 
+        fetchProductData,
+        fetchProductsByFilters,
         categoriesMenu,
-        cartItems, setCartItems,
-        addToCart, updateCartQuantity,
-        getCartCount, getCartAmount
+        brands,
+        stores,
+        pagination,
+        filterMeta,
+        cartItems, 
+        setCartItems,
+        addToCart, 
+        updateCartQuantity,
+        getCartCount, 
+        getCartAmount,
+        normalize,
+        mapProductoToProduct
     }
 
     return (

@@ -3,6 +3,7 @@ import { CategoriaService } from './categoria.service';
 import { CreateCategoriaDto } from './dto/create-categoria.dto';
 import { UpdateCategoriaDto } from './dto/update-categoria.dto';
 import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from 'src/auth/guard/auth.guard';
 
 @ApiTags('Categoria')
 @Controller('categoria')
@@ -10,25 +11,29 @@ export class CategoriaController {
   constructor(private readonly categoriaService: CategoriaService) {}
 
   @Post()
-  
   @ApiOperation({ summary: 'Crear una nueva categoria' })
   @ApiResponse({ status: 201, description: 'Categoria creada correctamente' })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiBody({ type: CreateCategoriaDto })
   create(@Body() createCategoriaDto: CreateCategoriaDto) {
     return this.categoriaService.create(createCategoriaDto);
-  } 
+  }
 
   @Get()
-  
   @ApiOperation({ summary: 'Obtener todas las categorias' })
   @ApiResponse({ status: 200, description: 'Lista de categorias devuelta' })
   getCategorias() {
     return this.categoriaService.getCategorias();
   }
 
+  @Get('public')
+  @ApiOperation({ summary: 'Obtener todas las categorias (público)' })
+  @ApiResponse({ status: 200, description: 'Lista de categorias devuelta' })
+  getCategoriasPublic() {
+    return this.categoriaService.getCategorias();
+  }
+
   @Get(':id')
-  
   @ApiOperation({ summary: 'Obtener una categoria por ID' })
   @ApiParam({
     name: 'id',
@@ -43,7 +48,6 @@ export class CategoriaController {
   }
 
   @Patch(':id')
-  
   @ApiOperation({ summary: 'Actualizar una categoria' })
   @ApiResponse({ status: 200, description: 'Categoria actualizada correctamente' })
   @ApiResponse({ status: 400, description: 'Categoria no encontrada' })
@@ -53,7 +57,6 @@ export class CategoriaController {
   }
 
   @Delete(':id')
-  
   @ApiOperation({ summary: 'Eliminar una categoria' })
   @ApiResponse({ status: 200, description: 'Categoria eliminada correctamente' })
   @ApiResponse({ status: 400, description: 'Categoria no encontrada' })

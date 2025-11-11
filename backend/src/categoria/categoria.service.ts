@@ -28,6 +28,7 @@ export class CategoriaService {
     try {
       return await this.categoriaRepository.find();
     } catch (error) {
+      console.log(error);
       throw new InternalServerErrorException(
         'Ocurrió un error al obtener las categorías',
       );

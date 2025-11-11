@@ -17,3 +17,12 @@
 ::-webkit-scrollbar {
   display: none;
 }
+
+@layer utilities {
+  /* Banda a ancho completo (full-bleed) que ignora el padding del contenedor */
+  .full-bleed {
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    width: 100vw;
+  }
+}

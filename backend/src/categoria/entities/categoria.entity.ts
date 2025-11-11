@@ -1,23 +1,17 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Articulo } from "../../articulo/entities/articulo.entity";
+import { SubCategoria } from "src/sub-categoria/entities/sub-categoria.entity";
 
-@Entity("categoria")
+@Entity("categoria", { schema: "sarcos_db" })
 export class Categoria {
   @PrimaryGeneratedColumn({ type: "int", name: "id_categoria" })
   idCategoria: number;
 
-  @Column("varchar", { name: "nombre", nullable: true, length: 255 })
+  @Column("varchar", { name: "nombre", nullable: true, length: 25 })
   nombre: string | null;
 
-  @Column("varchar", { name: "descripcion", nullable: true, length: 255 })
-  descripcion: string | null;
+  @Column("boolean", { name: "estado", default: () => "'1'" })
+  estado: boolean | null;
 
-  @Column("varchar", { name: "imagen", nullable: true, length: 255 })
-  imagen: string | null;
-
-  @Column("varchar", { name: "condicion", nullable: true, length: 255 })
-  condicion: string | null;
-
-  @OneToMany(() => Articulo, (articulo) => articulo.idCategoria2)
-  articulos: Articulo[];
+  @OneToMany(() => SubCategoria, (subCategoria) => subCategoria.idCategoria2)
+  sub_categorias: SubCategoria[];
 }

@@ -1,17 +1,22 @@
-export async function getCategorias() {
+import { buildUrl } from './api';
+
+export async function getCategorias(options?: { signal?: AbortSignal }) {
   try {
-    const res = await fetch("http://localhost:4000/api/categoria", {
+    // Usar endpoint público según backend NestJS
+    const res = await fetch(buildUrl("/api/categoria/"), {
       method: "GET",
       cache: "no-store",
+      signal: options?.signal,
     });
     if (!res.ok) {
       throw new Error("Error al obtener categorías");
     }
     const data = await res.json();
-    console.log("Categorías obtenidas con éxito", data?.length ?? 0);
     return data;
-  } catch (error) {
-    console.error("Error en getCategorias:", error);
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      return undefined as any;
+    }
     throw error;
   }
 }

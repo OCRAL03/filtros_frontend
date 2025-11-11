@@ -1,7 +1,7 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Articulo } from "../../articulo/entities/articulo.entity";
+import { Producto } from "src/producto/entities/producto.entity";
 
-@Entity("marca")
+@Entity("marca", { schema: "sarcos_db" })
 export class Marca {
   @PrimaryGeneratedColumn({ type: "int", name: "id_marca" })
   idMarca: number;
@@ -9,12 +9,9 @@ export class Marca {
   @Column("varchar", { name: "nombre", nullable: true, length: 255 })
   nombre: string | null;
 
-  @Column("varchar", { name: "imagen", nullable: true, length: 255 })
-  imagen: string | null;
+  @Column("boolean", { name: "estado", default: () => "'1'" })
+  estado: boolean | null;
 
-  @Column("varchar", { name: "condicion", nullable: true, length: 50 })
-  condicion: string | null;
-
-  @OneToMany(() => Articulo, (articulo) => articulo.idMarca2)
-  articulos: Articulo[];
+  @OneToMany(() => Producto, (producto) => producto.idMarca2)
+  productos: Producto[];
 }

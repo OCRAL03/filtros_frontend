@@ -1,6 +1,7 @@
 "use client"
 import React, { useEffect, useRef, useState } from "react";
 import { assets } from "@/assets/assets";
+import { getBrandsForCategory } from "@/assets/brandLogos";
 import Link from "next/link"
 import { useAppContext } from "@/context/AppContext";
 import Image from "next/image";
@@ -14,8 +15,8 @@ const Navbar = () => {
   const catsRef = useRef(null);
   const categoriesData = (categoriesMenu && categoriesMenu.length) ? categoriesMenu : [];
   const [activeCatIdx, setActiveCatIdx] = useState(0);
+  const [expandedCols, setExpandedCols] = useState({});
 
-  // Formatea etiquetas: evita MAYÚSCULAS duras y respeta acrónimos
   const formatLabel = (s) => {
     const small = new Set(["de","y","del","la","las","los","el","en","para","por","con","o","u","a"]);
     const txt = (s || "").toLowerCase();
@@ -37,20 +38,18 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    if (!searchOpen) return;
     const id = setTimeout(() => {
       const q = searchQuery.trim();
-      if (q.length < 2) return; // Evitar navegación con términos muy cortos
-      const target = q ? `/all-products?q=${encodeURIComponent(q)}` : '/all-products';
-      // Usar push para evitar abortos de navegación RSC y mantener historial
+      if (q.length < 2) return; // evita push excesivos y aborts
+      const target = `/all-products?q=${encodeURIComponent(q)}`;
       try {
         router.push(target);
       } catch (error) {
         console.warn('Navigation error:', error);
       }
-    }, 500); // Aumentar debounce para reducir navegaciones rápidas
+    }, 300);
     return () => clearTimeout(id);
-  }, [searchQuery, searchOpen, router]);
+  }, [searchQuery, router]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -75,7 +74,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700">
+      <nav className="sticky top-0 z-50 bg-white flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700">
         <Image
           className="cursor-pointer w-28 md:w-32"
           onClick={() => router.push('/')}
@@ -111,22 +110,22 @@ const Navbar = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar artículos..."
-                className="border rounded px-3 py-1 text-sm w-60"
+                className="w-64 sm:w-72 md:w-96 px-3 py-2 border rounded text-sm"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
               />
               <button
                 onClick={handleSearch}
-                className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition"
+                className="px-3 py-1 bg-brandRed-600 text-white rounded hover:bg-brandRed-500 transition shadow-softRed"
               >
                 Buscar
               </button>
             </>
           )}
           <button onClick={() => setSearchOpen((prev) => !prev)} className="hover:opacity-80">
-            <Image className="w-4 h-4" src={assets.search_icon} alt="search icon" />
+            <Image className="w-4 h-4 object-contain" src={assets.search_icon} alt="search icon" width={16} height={16} style={{ width: 'auto', height: 'auto' }} />
           </button>
           <button className="flex items-center gap-2 hover:text-gray-900 transition">
-            <Image src={assets.user_icon} alt="user icon" />
+            <Image src={assets.user_icon} alt="user icon" width={18} height={18} className="w-4 h-4 object-contain" style={{ width: 'auto', height: 'auto' }} />
             Cuenta
           </button>
         </ul>
@@ -135,7 +134,7 @@ const Navbar = () => {
           <button
             type="button"
             onClick={() => setCatsOpen((prev) => !prev)}
-            className="px-3 py-1.5 rounded-full border text-sm bg-gray-50 border-gray-200 text-gray-700 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 transition"
+            className="px-3 py-1.5 rounded-full border text-sm bg-brandRed-50 border-brandRed-300 text-brandRed-700 hover:bg-brandRed-100 hover:border-brandRed-500 transition shadow-softRed"
             aria-label="Abrir categorías"
             aria-expanded={catsOpen}
             aria-controls="categories-menu"
@@ -156,8 +155,8 @@ const Navbar = () => {
                     <li key={idx}>
                       <button
                         onMouseEnter={() => setActiveCatIdx(idx)}
-                        onClick={() => router.push(`/all-products?c=${encodeURIComponent(category.title)}`)}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-sm md:text-base ${idx === activeCatIdx ? 'bg-orange-50 text-orange-700' : 'hover:bg-orange-50 text-gray-700'}`}
+                        onClick={() => { router.push(`/all-products?c=${encodeURIComponent(category.title)}`); setCatsOpen(false); }}
+                        className={`w-full flex items-center justify-between px-4 py-3 text-sm md:text-base ${idx === activeCatIdx ? 'bg-brandRed-50 text-brandRed-700' : 'hover:bg-brandRed-50 text-gray-700'}`}
                       >
                         <span>{formatLabel(category.title)}</span>
                         <span className="text-gray-400">›</span>
@@ -167,19 +166,20 @@ const Navbar = () => {
                 </ul>
               </aside>
 
-              {/* Panel derecho: marcas + subcategorías */}
-              <section className="flex-1 px-8">
+              <section className="flex-1 w-full px-4 md:px-8">
                 {(() => {
                   const cat = categoriesData[activeCatIdx] || {};
-                  const brandsToShow = (cat.brands && cat.brands.length) ? cat.brands : computeBrandsForGroup(cat.title);
+                  const autoBrands = getBrandsForCategory(cat.title);
+                  const brandsToShow = (cat.brands && cat.brands.length)
+                    ? cat.brands
+                    : (autoBrands.length ? autoBrands : computeBrandsForGroup(cat.title));
                   return (
                     <div>
-                      {/* Fila de marcas (máximo 8) */}
-                      <div className="flex flex-wrap items-center gap-6 mb-6">
-                        {brandsToShow?.slice(0, 8).map((brand, bIdx) => (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 mb-6">
+                        {brandsToShow?.slice(0, 12).map((brand, bIdx) => (
                           <button
                             key={bIdx}
-                            onClick={() => { const q = (brand.value || brand.name).toLowerCase(); router.push(`/all-products?q=${encodeURIComponent(q)}`); }}
+                            onClick={() => { const q = (brand.value || brand.name).toLowerCase(); router.push(`/all-products?q=${encodeURIComponent(q)}`); setCatsOpen(false); }}
                             className="flex flex-col items-center gap-2 group"
                             aria-label={`Marca ${brand.name}`}
                           >
@@ -188,11 +188,12 @@ const Navbar = () => {
                                 <Image
                                   src={brand.logo}
                                   alt={`${brand.name} logo`}
-                                  width={48}
-                                  height={48}
+                                  width={40}
+                                  height={40}
                                   className="w-10 h-10 object-contain"
                                   unoptimized
                                   loading="lazy"
+                                  style={{ width: 'auto', height: 'auto' }}
                                   onError={(e) => { try { e.currentTarget.style.display = 'none'; } catch {} }}
                                 />
                               ) : (
@@ -206,30 +207,75 @@ const Navbar = () => {
 
                       <div className="border-t my-4" />
 
-                      {/* Subcategorías en columnas (como la imagen). Fallback: chips */}
                       {cat.columns && cat.columns.length ? (
-                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                           {cat.columns.map((col, i) => (
                             <div key={i} className="min-w-[180px]">
-                              <h4 className="text-sm font-semibold text-gray-800 mb-2">{formatLabel(col.title)}</h4>
-                              <ul className="space-y-1">
-                                {(col.items || []).map((name, j) => (
-                                  <li key={j}>
-                                    <button
-                                      onClick={() => {
-                                        const group = cat.title;
-                                        const sub = col.title;
-                                        const type = name;
-                                        router.push(`/all-products?c=${encodeURIComponent(group)}&s=${encodeURIComponent(sub)}&t=${encodeURIComponent(type)}`);
-                                      }}
-                                      className="text-sm text-gray-600 hover:text-orange-700 hover:underline"
-                                      aria-label={`Subcategoría ${name}`}
-                                    >
-                                      {formatLabel(name)}
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const group = cat.title;
+                                  const sub = col.title;
+                                  const usp = new URLSearchParams();
+                                  usp.set('c', String(group));
+                                  usp.set('s', String(sub));
+                                  // Al elegir subcategoría directa, limpiar tipo
+                                  const url = `/all-products?${usp.toString()}`;
+                                  router.push(url);
+                                  setCatsOpen(false);
+                                }}
+                                className="text-left w-full text-sm font-semibold text-gray-800 mb-2 hover:text-orange-700 hover:underline"
+                                aria-label={`Filtrar por subcategoría ${col.title}`}
+                              >
+                                {formatLabel(col.title)}
+                              </button>
+                              {(() => {
+                                const colKey = String(col?.id ?? `${cat.title}|${col.title}`);
+                                const items = Array.isArray(col.items) ? col.items : [];
+                                const expanded = !!expandedCols[colKey];
+                                const visibleItems = expanded ? items : items.slice(0, 4);
+                                return (
+                                  <>
+                                    <ul className={expanded ? "grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1" : "space-y-1"}>
+                                      {visibleItems.map((name, j) => (
+                                        <li key={j}>
+                                          <button
+                                            onClick={() => {
+                                              const group = cat.title;
+                                              const sub = col.title;
+                                              const type = name;
+                                              router.push(`/all-products?c=${encodeURIComponent(group)}&s=${encodeURIComponent(sub)}&t=${encodeURIComponent(type)}`);
+                                              setCatsOpen(false);
+                                            }}
+                                            className="text-sm text-gray-600 hover:text-orange-700 hover:underline"
+                                            aria-label={`Tipo ${name}`}
+                                          >
+                                            {formatLabel(name)}
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                    {!expanded && items.length > 4 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedCols((prev) => ({ ...prev, [colKey]: true }))}
+                                        className="mt-2 text-xs text-gray-600 hover:text-orange-700 hover:underline"
+                                      >
+                                        Ver más
+                                      </button>
+                                    )}
+                                    {expanded && items.length > 4 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedCols((prev) => ({ ...prev, [colKey]: false }))}
+                                        className="mt-2 text-xs text-gray-600 hover:text-orange-700 hover:underline"
+                                      >
+                                        Ver menos
+                                      </button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           ))}
                         </div>

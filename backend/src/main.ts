@@ -2,7 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import cookieParser from 'cookie-parser'; // ✅ Sin asterisco
+import cookieParser from 'cookie-parser';
+import { HttpExceptionFilter } from './common/execeptions/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,8 +15,8 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory, {
     swaggerOptions: {
-      tagsSorter: 'alpha', // 👈 fuerza orden alfabético en el menú
-      operationsSorter: 'alpha', // 👈 también ordena los endpoints dentro del tag
+      tagsSorter: 'alpha', 
+      operationsSorter: 'alpha',
     },
   });
 
@@ -29,21 +30,23 @@ async function bootstrap() {
     }),
   );
 
+  app.useGlobalFilters(new HttpExceptionFilter());
+
   app.use(cookieParser());
 
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3006', 'http://localhost:3005'], // ⚠️ Permite frontend en 3000, 3001, 3005 y 3006
-    credentials: true, // ✅ MUY IMPORTANTE
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3002',
+    ],
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Set-Cookie'],
   });
-
   const port = Number(process.env.PORT ?? 4000);
-  await app.listen(port, '0.0.0.0');
-  const url = await app.getUrl();
-  // Log explícito del URL para diagnóstico
-  // Ej.: http://localhost:4000
-  console.log(`Nest HTTP server listening at: ${url}`);
+  const host = process.env.HOST || '0.0.0.0';
+  await app.listen(port, host);
+  console.log(`Nest app listening on http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
 }
 bootstrap();
